@@ -17,7 +17,7 @@ interface Votium {
 
 contract VotiumHelper {
     using SafeERC20 for IERC20;
-    address public constant VOTIUM = 0x63942E31E98f1833A234077f47880A66136a2D1e;
+    address public constant DEPOSIT_ADDRESS = 0x63942E31E98f1833A234077f47880A66136a2D1e;
     address public rewardToken;
     address public manager;
     address public rewardNotifier;
@@ -33,7 +33,7 @@ contract VotiumHelper {
         manager = msg.sender;
         rewardNotifier = _rewardNotifier;
         rewardToken = _rewardToken;
-        IERC20(rewardToken).approve(VOTIUM, type(uint256).max);
+        IERC20(rewardToken).approve(DEPOSIT_ADDRESS, type(uint256).max);
     }
 
 
@@ -60,9 +60,9 @@ contract VotiumHelper {
             assignedAmount += amounts[i];
         }
 
-        Votium(VOTIUM).depositUnevenSplitGauges(
+        Votium(DEPOSIT_ADDRESS).depositUnevenSplitGauges(
             rewardToken,
-            Votium(VOTIUM).activeRound(),
+            Votium(DEPOSIT_ADDRESS).activeRound(),
             currentWeights.gauges,
             amounts,
             0,
@@ -117,10 +117,10 @@ contract VotiumHelper {
     }
     function setRewardToken(address _rewardToken) external onlyManager {
         // remove previous approval
-        IERC20(rewardToken).approve(VOTIUM, 0);
+        IERC20(rewardToken).approve(DEPOSIT_ADDRESS, 0);
         // set new token and approve
         rewardToken = _rewardToken;
-        IERC20(rewardToken).approve(VOTIUM, type(uint256).max);
+        IERC20(rewardToken).approve(DEPOSIT_ADDRESS, type(uint256).max);
     }
     function setRewardNotifier(address _rewardNotifier) external onlyManager {
         rewardNotifier = _rewardNotifier;
