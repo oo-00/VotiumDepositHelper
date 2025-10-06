@@ -49,11 +49,15 @@ contract VotiumHelper {
     function notifyReward(uint256 _amount) external onlyRewardNotifier {
         require(currentWeights.gauges.length > 0, "!weights");
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), _amount);
-        IERC20(rewardToken).approve(VOTIUM, _amount);
-
+        uint256 assignedAmount = 0;
         uint256[] memory amounts = new uint256[](currentWeights.weights.length);
         for(uint256 i = 0; i < currentWeights.weights.length; i++) {
+            if(i == currentWeights.weights.length - 1) {
+                amounts[i] = _amount - assignedAmount; // assign remainder to last gauge to prevent dust
+                break;
+            }
             amounts[i] = (_amount * currentWeights.weights[i]) / MAX_GAUGE_WEIGHT;
+            assignedAmount += amounts[i];
         }
 
         Votium(VOTIUM).depositUnevenSplitGauges(
@@ -97,6 +101,7 @@ contract VotiumHelper {
             require(isApprovedGauge[_gauges[i]], "!approved");
             uint160 height = uint160(_gauges[i]);
             require(height > addressHeight, "!sorted");
+            require(_weights[i] > 0, "!zero");
             addressHeight = height;
             totalWeight += _weights[i];
         }
