@@ -70,6 +70,15 @@ contract VotiumHelper {
         return (currentWeights.gauges, currentWeights.weights);
     }
 
+    function currentWeightOfGauge(address _gauge) public view returns (uint16) {
+        for (uint256 i = 0; i < currentWeights.gauges.length; i++) {
+            if (currentWeights.gauges[i] == _gauge) {
+                return currentWeights.weights[i];
+            }
+        }
+        return 0;
+    }
+
     // Management configuration
 
     /**
@@ -117,6 +126,7 @@ contract VotiumHelper {
     }
     function removeApprovedGauge(address _gauge) external onlyManager {
         require(isApprovedGauge[_gauge], "!approved");
+        require(currentWeightOfGauge(_gauge) == 0, "!zero");
         isApprovedGauge[_gauge] = false;
     }
 
