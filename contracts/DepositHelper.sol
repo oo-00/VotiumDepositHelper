@@ -13,9 +13,10 @@ interface Votium {
         uint256 _maxPerVote,
         address[] calldata _excluded
     ) external;
+    function maxExclusions() external view returns (uint256);
 }
 
-contract VotiumHelper {
+contract DepositHelper {
     using SafeERC20 for IERC20;
     address public constant DEPOSIT_ADDRESS = 0x63942E31E98f1833A234077f47880A66136a2D1e;
     address public rewardToken;
@@ -28,6 +29,8 @@ contract VotiumHelper {
     CurrentWeights private currentWeights; // cannot publicly return struct arrays
     mapping(address => bool) public isApprovedGauge; // gauge => isApproved
     uint16 public constant MAX_GAUGE_WEIGHT = 10000;
+
+    address[] public excludeAddresses; // addresses to exclude from eligibility for rewards
 
     constructor(address _rewardToken, address _rewardNotifier) {
         manager = msg.sender;
@@ -58,6 +61,23 @@ contract VotiumHelper {
             }
             amounts[i] = (_amount * currentWeights.weights[i]) / MAX_GAUGE_WEIGHT;
             assignedAmount += amounts[i];
+        }
+
+        if(excludeAddresses.length > 0) {
+            uint256 maxExclusions = Votium(DEPOSIT_ADDRESS).maxExclusions();
+            address[] memory exclusions = new address[](excludeAddresses.length > maxExclusions ? maxExclusions : excludeAddresses.length);
+            for(uint256 i = 0; i < exclusions.length; i++) {
+                exclusions[i] = excludeAddresses[i];
+            }
+            Votium(DEPOSIT_ADDRESS).depositUnevenSplitGauges(
+                rewardToken,
+                Votium(DEPOSIT_ADDRESS).activeRound(),
+                currentWeights.gauges,
+                amounts,
+                0,
+                exclusions
+            );
+            return;
         }
 
         Votium(DEPOSIT_ADDRESS).depositUnevenSplitGauges(
@@ -112,6 +132,15 @@ contract VotiumHelper {
         });
     }
 
+    /**
+     * @notice Exclusions are limited to Votium max exclusions. Deposits will use only what is allowed by Votium.
+     * @param _excludeAddresses The list of addresses to exclude from rewards
+     * @dev List will be used in order given, up to Votium max exclusions at time of deposit
+     */
+    function setExcludeAddresses(address[] memory _excludeAddresses) external onlyManager {
+        excludeAddresses = _excludeAddresses;
+    }
+
     function setManager(address _manager) external onlyManager {
         manager = _manager;
     }
@@ -126,11 +155,9 @@ contract VotiumHelper {
         rewardNotifier = _rewardNotifier;
     }
     function addApprovedGauge(address _gauge) external onlyManager {
-        require(!isApprovedGauge[_gauge], "!duplicate");
         isApprovedGauge[_gauge] = true;
     }
     function removeApprovedGauge(address _gauge) external onlyManager {
-        require(isApprovedGauge[_gauge], "!approved");
         require(currentWeightOfGauge(_gauge) == 0, "!zero");
         isApprovedGauge[_gauge] = false;
     }
