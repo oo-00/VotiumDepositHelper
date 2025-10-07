@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-interface IVotiumHelper {
+interface IDepositHelper {
 
     // --- View functions ---
     function DEPOSIT_ADDRESS() external view returns (address);
@@ -19,6 +19,7 @@ interface IVotiumHelper {
     function notifyReward(uint256 _amount) external;
 
     function setWeights(address[] memory _gauges, uint16[] memory _weights) external;
+    function setExcludeAddresses(address[] memory _excludeAddresses) external;
     function setManager(address _manager) external;
     function setRewardToken(address _rewardToken) external;
     function setRewardNotifier(address _rewardNotifier) external;
