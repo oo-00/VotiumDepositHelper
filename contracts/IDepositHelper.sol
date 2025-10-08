@@ -8,6 +8,7 @@ interface IDepositHelper {
     function DEPOSIT_ADDRESS() external view returns (address);
     function rewardToken() external view returns (address);
     function manager() external view returns (address);
+    function owner() external view returns (address);
     function rewardNotifier() external view returns (address);
     function MAX_GAUGE_WEIGHT() external view returns (uint16);
     function isApprovedGauge(address _gauge) external view returns (bool);
