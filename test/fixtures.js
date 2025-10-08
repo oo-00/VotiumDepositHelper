@@ -59,6 +59,7 @@ async function votiumSetUp() {
         "function viewIncentive(uint256 _round, address _gauge, uint256 _incentive) external view returns (tuple(address token, uint256 amount, uint256 maxPerVote, uint256 distributed, uint256 recycled, address depositor, address[] excluded))",
         "function tokenAllowed(address _token) external view returns (bool)",
         "function allowToken(address _token, bool _allow) external",
+        "function setMaxExclusions(uint256 _max) external",
     ];
     votium = new ethers.Contract(votiumAddress, votiumAbi, ethers.provider);
     return votium;
