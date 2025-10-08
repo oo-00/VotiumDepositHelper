@@ -16,6 +16,7 @@ contract DepositPlatformDivider {
 
     uint16 public constant MAX_HELPER_WEIGHT = 10000;
 
+    uint256 public lastClaimed;
     address public manager;
     address public rewardToken;
 
@@ -44,27 +45,6 @@ contract DepositPlatformDivider {
         _;
     }
 
-    // Claim from vest, split, and notify each helper
-    function claim() external {
-        require(currentWeights.helpers.length > 0, "!weights");
-        VESTING.claim();
-        uint256 balance = IERC20(rewardToken).balanceOf(address(this));
-        require(balance > 0, "!balance");
-        uint256 assignedAmount = 0;
-        uint256[] memory amounts = new uint256[](currentWeights.weights.length);
-        for(uint256 i = 0; i < currentWeights.weights.length; i++) {
-            if(i == currentWeights.weights.length - 1) {
-                amounts[i] = balance - assignedAmount; // assign remainder to last helper to prevent dust
-                break;
-            }
-            amounts[i] = (balance * currentWeights.weights[i]) / MAX_HELPER_WEIGHT;
-            assignedAmount += amounts[i];
-        }
-        for(uint256 i = 0; i < currentWeights.helpers.length; i++) {
-            IDepositHelper(currentWeights.helpers[i]).notifyReward(amounts[i]);
-        }
-    }
-
     // --- View functions ---
     function getCurrentWeights() external view returns (address[] memory, uint16[] memory) {
         return (currentWeights.helpers, currentWeights.weights);
@@ -78,39 +58,72 @@ contract DepositPlatformDivider {
         return 0;
     }
 
+    // --- Main function ---
+    
+    // Claim from vest, split, and notify each helper
+    function claim() external {
+        require(block.timestamp >= lastClaimed + 7 days, "!wait");
+        require(currentWeights.helpers.length > 0, "!weights");
+        lastClaimed = block.timestamp;
+        VESTING.claim();
+        uint256 balance = IERC20(rewardToken).balanceOf(address(this));
+        require(balance > 0, "!balance");
+        emit Claimed(balance);
+        uint256 assignedAmount = 0;
+        uint256[] memory amounts = new uint256[](currentWeights.weights.length);
+        for(uint256 i = 0; i < currentWeights.weights.length; i++) {
+            if(i == currentWeights.weights.length - 1) {
+                amounts[i] = balance - assignedAmount; // assign remainder to last helper to prevent dust
+                break;
+            }
+            amounts[i] = (balance * currentWeights.weights[i]) / MAX_HELPER_WEIGHT;
+            assignedAmount += amounts[i];
+        }
+        for(uint256 i = 0; i < currentWeights.helpers.length; i++) {
+            IDepositHelper(currentWeights.helpers[i]).notifyReward(amounts[i]);
+            emit AddedRewards(rewardToken, currentWeights.helpers[i], amounts[i]);
+        }
+    }
+
     // --- Manager functions ---
 
     function setWeights(address[] memory _helpers, uint16[] memory _weights) external onlyManager {
         require(_helpers.length == _weights.length, "!length");
         uint256 totalWeight = 0;
         for(uint256 i = 0; i < _helpers.length; i++) {
+            require(_weights[i] > 0, "!zero");
             require(isApprovedHelper[_helpers[i]], "!approved");
             totalWeight += _weights[i];
         }
         require(totalWeight == MAX_HELPER_WEIGHT, "!10000");
         currentWeights.helpers = _helpers;
         currentWeights.weights = _weights;
+        emit UpdatedWeights(_helpers, _weights);
     }
 
     // --- Owner functions ---
 
     function setManager(address _manager) external onlyOwner {
         manager = _manager;
+        emit NewManager(_manager);
     }
 
     function setRewardToken(address _rewardToken) external onlyOwner {
         rewardToken = _rewardToken;
+        emit NewRewardToken(_rewardToken);
     }
 
     function addDepositHelper(address _depositHelper) external onlyOwner {
         isApprovedHelper[_depositHelper] = true;
         IERC20(rewardToken).approve(_depositHelper, type(uint256).max);
+        emit AddedHelper(_depositHelper);
     }
 
     function removeDepositHelper(address _depositHelper) external onlyOwner {
-        require(currentWeightOfHelper(_depositHelper) == 0, "!zero");
+        require(currentWeightOfHelper(_depositHelper) == 0, "!weight");
         isApprovedHelper[_depositHelper] = false;
         IERC20(rewardToken).approve(_depositHelper, 0);
+        emit RemovedHelper(_depositHelper);
     }
 
     function execute(address to, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
@@ -118,4 +131,14 @@ contract DepositPlatformDivider {
         require(success, "Call failed");
         return result;
     }
+
+    // --- Events ---
+    event Claimed(uint256 amount);
+    event AddedRewards(address token, address indexed helper, uint256 amount);
+    event AddedHelper(address indexed helper);
+    event RemovedHelper(address indexed helper);
+    event UpdatedWeights(address[] helpers, uint16[] weights);
+    event NewManager(address manager);
+    event NewRewardToken(address rewardToken);
+
 }

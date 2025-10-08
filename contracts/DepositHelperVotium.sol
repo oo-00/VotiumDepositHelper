@@ -49,9 +49,26 @@ contract DepositHelperVotium {
         _;
     }
     modifier onlyOwner() {
-        require(msg.sender == owner, "!owner");
+        require(msg.sender == owner, "!auth");
         _;
     }
+
+    // --- View functions ---
+
+    function getCurrentWeights() external view returns (address[] memory, uint16[] memory) {
+        return (currentWeights.gauges, currentWeights.weights);
+    }
+
+    function currentWeightOfGauge(address _gauge) public view returns (uint16) {
+        for (uint256 i = 0; i < currentWeights.gauges.length; i++) {
+            if (currentWeights.gauges[i] == _gauge) {
+                return currentWeights.weights[i];
+            }
+        }
+        return 0;
+    }
+
+    // --- Main function ---
 
     // Called by reward notifier (DepositPlatformDivider) to notify rewards and split to gauges
     function notifyReward(uint256 _amount) external {
@@ -59,15 +76,19 @@ contract DepositHelperVotium {
         require(currentWeights.gauges.length > 0, "!weights");
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), _amount);
 
+        uint256 votiumRound = Votium(DEPOSIT_ADDRESS).activeRound();
+
         // split amounts according to weights
         uint256 assignedAmount = 0;
         uint256[] memory amounts = new uint256[](currentWeights.weights.length);
         for(uint256 i = 0; i < currentWeights.weights.length; i++) {
             if(i == currentWeights.weights.length - 1) {
                 amounts[i] = _amount - assignedAmount; // assign remainder to last gauge to prevent dust
+                emit DepositForGauge(currentWeights.gauges[i], amounts[i], votiumRound);
                 break;
             }
             amounts[i] = (_amount * currentWeights.weights[i]) / MAX_GAUGE_WEIGHT;
+            emit DepositForGauge(currentWeights.gauges[i], amounts[i], votiumRound);
             assignedAmount += amounts[i];
         }
         // Handle exclusions if any are set
@@ -79,7 +100,7 @@ contract DepositHelperVotium {
             }
             Votium(DEPOSIT_ADDRESS).depositUnevenSplitGauges(
                 rewardToken,
-                Votium(DEPOSIT_ADDRESS).activeRound(),
+                votiumRound,
                 currentWeights.gauges,
                 amounts,
                 0,
@@ -96,21 +117,6 @@ contract DepositHelperVotium {
             0,
             new address[](0)
         );
-    }
-
-    // --- View functions ---
-
-    function getCurrentWeights() external view returns (address[] memory, uint16[] memory) {
-        return (currentWeights.gauges, currentWeights.weights);
-    }
-
-    function currentWeightOfGauge(address _gauge) public view returns (uint16) {
-        for (uint256 i = 0; i < currentWeights.gauges.length; i++) {
-            if (currentWeights.gauges[i] == _gauge) {
-                return currentWeights.weights[i];
-            }
-        }
-        return 0;
     }
 
     // --- Manager functions ---
@@ -140,6 +146,7 @@ contract DepositHelperVotium {
             gauges: _gauges,
             weights: _weights
         });
+        emit UpdatedWeights(_gauges, _weights);
     }
 
     /**
@@ -149,12 +156,14 @@ contract DepositHelperVotium {
      */
     function setExcludeAddresses(address[] memory _excludeAddresses) external onlyManager {
         excludeAddresses = _excludeAddresses;
+        emit UpdatedExclusions(_excludeAddresses);
     }
 
     // --- Owner functions ---
 
     function setManager(address _manager) external onlyOwner {
         manager = _manager;
+        emit NewManager(_manager);
     }
     
     function setRewardToken(address _rewardToken) external onlyOwner {
@@ -163,19 +172,23 @@ contract DepositHelperVotium {
         // set new token and approve
         rewardToken = _rewardToken;
         IERC20(rewardToken).approve(DEPOSIT_ADDRESS, type(uint256).max);
+        emit NewRewardToken(_rewardToken);
     }
 
     function setRewardNotifier(address _rewardNotifier) external onlyOwner {
         rewardNotifier = _rewardNotifier;
+        emit NewRewardNotifier(_rewardNotifier);
     }
 
     function addApprovedGauge(address _gauge) external onlyOwner {
         isApprovedGauge[_gauge] = true;
+        emit AddedGauge(_gauge);
     }
 
     function removeApprovedGauge(address _gauge) external onlyOwner {
-        require(currentWeightOfGauge(_gauge) == 0, "!zero");
+        require(currentWeightOfGauge(_gauge) == 0, "!weight");
         isApprovedGauge[_gauge] = false;
+        emit RemovedGauge(_gauge);
     }
 
     function execute(address to, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
@@ -183,4 +196,15 @@ contract DepositHelperVotium {
         require(success, "Call failed");
         return result;
     }
+
+    // --- Events ---
+    event Notified(address token, uint256 amount);
+    event AddedGauge(address indexed gauge);
+    event RemovedGauge(address indexed gauge);
+    event UpdatedWeights(address[] gauges, uint16[] weights);
+    event NewManager(address manager);
+    event NewRewardToken(address rewardToken);
+    event NewRewardNotifier(address rewardNotifier);
+    event UpdatedExclusions(address[] excludeAddresses);
+    event DepositForGauge(address indexed gauge, uint256 amount, uint256 indexed round);
 }
