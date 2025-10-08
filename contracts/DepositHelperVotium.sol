@@ -155,6 +155,9 @@ contract DepositHelperVotium {
      * @dev List will be used in order given, up to Votium max exclusions at time of deposit
      */
     function setExcludeAddresses(address[] memory _excludeAddresses) external onlyManager {
+        for(uint256 i = 1; i < _excludeAddresses.length; i++) {
+            require(_excludeAddresses[i] > _excludeAddresses[i-1], "!sorted");
+        }
         excludeAddresses = _excludeAddresses;
         emit UpdatedExclusions(_excludeAddresses);
     }

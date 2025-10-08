@@ -47,6 +47,8 @@ describe("Setup", function () {
         helperVotiumAddress = await DepositHelperVotium.getAddress();
         helperTwoAddress = await DepositHelperTwo.getAddress();
         manager = await DepositHelperVotium.manager();
+        tommyAddress = "0xdC7C7F0bEA8444c12ec98Ec626ff071c6fA27a19";
+        votiAddress = "0xe39b8617D571CEe5e75e1EC6B2bb40DdC8CF6Fa3";
 
         await impersonateAccount(manager);
         signers.manager = await ethers.getSigner(manager);
@@ -69,6 +71,10 @@ describe("Setup", function () {
         signers.tommy = await ethers.getSigner("0xdC7C7F0bEA8444c12ec98Ec626ff071c6fA27a19");
         await setBalance("0xdC7C7F0bEA8444c12ec98Ec626ff071c6fA27a19", ethers.toBigInt("10000000000000000000"));
 
+        await impersonateAccount("0xe39b8617D571CEe5e75e1EC6B2bb40DdC8CF6Fa3");
+        signers.voti = await ethers.getSigner("0xe39b8617D571CEe5e75e1EC6B2bb40DdC8CF6Fa3");
+        await setBalance("0xe39b8617D571CEe5e75e1EC6B2bb40DdC8CF6Fa3", ethers.toBigInt("10000000000000000000"));
+
     });
 
     describe("Validate Deployment Values", () => {
@@ -86,7 +92,7 @@ describe("Setup", function () {
         });
     });
 
-    describe("DAO sets receiver, and starts emissions", function () {
+    describe("Onchain 3rd party actions", function () {
         it("should set the receiver correctly", async () => {
             // set recipient of vesting to be the DepositPlatformDivider
             await vesting.connect(signers.dao).set_recipient(dividerAddress);
@@ -121,6 +127,9 @@ describe("Setup", function () {
         it("should have some claimable yb in vesting", async () => {
             var claimable = await vesting.claimable();
             expect(claimable).to.be.gt(0);
+        });
+        it("should set Votium max exclusions to 3", async () => {
+            await expect(votium.connect(signers.voti).setMaxExclusions(3)).to.not.be.reverted;
         });
     });
 
@@ -180,7 +189,7 @@ describe("Setup", function () {
                 expect(await DepositPlatformDivider.currentWeightOfHelper(helperVotiumAddress)).to.be.equal(7000);
                 expect(await DepositPlatformDivider.currentWeightOfHelper(helperTwoAddress)).to.be.equal(3000);
             });
-            it("should not allow a weight to be set to 0 except by ommission", async () => {
+            it("should not allow a weight to be set to 0 except by omission", async () => {
                 await expect(DepositPlatformDivider.connect(signers.manager).setWeights([helperVotiumAddress, helperTwoAddress],[10000, 0])).to.be.revertedWith("!zero");
             });
             it("should fail before helpers are configured", async () => {
@@ -231,8 +240,18 @@ describe("Setup", function () {
                 expect(await DepositHelperVotium.currentWeightOfGauge(gauge1)).to.be.equal(6000);
                 expect(await DepositHelperVotium.currentWeightOfGauge(gauge2)).to.be.equal(4000);
             });
-            it("should not allow a weight to be set to 0 except by ommission", async () => {
+            it("should not allow a weight to be set to 0 except by omission", async () => {
                 await expect(DepositHelperVotium.connect(signers.manager).setWeights([gauge1, gauge2],[10000, 0])).to.be.revertedWith("!zero");
+            });
+            it("should not allow public to change exclusion list", async () => {
+                await expect(DepositHelperVotium.connect(signers.minter).setExcludeAddresses([manager])).to.be.revertedWith("!auth");
+            });
+            it("should now allow exclusions to be out of ascending order", async() => {
+                await expect(DepositHelperVotium.connect(signers.dao).setExcludeAddresses([tommyAddress, vestingAddress, daoAddress, votiAddress])).to.be.revertedWith("!sorted");
+            });
+            it("should allow manager or dao to change exclusion list", async () => {
+                await expect(DepositHelperVotium.connect(signers.manager).setExcludeAddresses([manager])).to.not.be.reverted;
+                await expect(DepositHelperVotium.connect(signers.dao).setExcludeAddresses([vestingAddress, daoAddress, tommyAddress, votiAddress])).to.not.be.reverted;
             });
             it("should add gauges3 and 4 to helperTwo", async () => {
                 await DepositHelperTwo.connect(signers.dao).addApprovedGauge(gauge3);
@@ -280,6 +299,14 @@ describe("Setup", function () {
             expect(gauge3Info.amount).to.be.closeTo((diff * 3000n)/10000n * 5000n/10000n, 1);
             // gauge 4 should have 50% of difference * 30%
             expect(gauge4Info.amount).to.be.closeTo((diff * 3000n)/10000n * 5000n/10000n, 1);
+        });
+        it("should have used 3 of 4 exclusions as Votium capped at 3", async () => {
+            var gauge1Info = await votium.viewIncentive(await votium.activeRound(), gauge1, 0);
+            expect(gauge1Info.excluded.length).to.be.equal(3);
+            expect(gauge1Info.excluded[0]).to.be.equal(vestingAddress);
+            expect(gauge1Info.excluded[1]).to.be.equal(daoAddress);
+            expect(gauge1Info.excluded[2]).to.be.equal(tommyAddress);
+
         });
     });
 });
