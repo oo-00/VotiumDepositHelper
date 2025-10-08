@@ -16,24 +16,28 @@ interface Votium {
     function maxExclusions() external view returns (uint256);
 }
 
-contract DepositHelper {
+contract DepositHelperVotium {
     using SafeERC20 for IERC20;
     address public constant DEPOSIT_ADDRESS = 0x63942E31E98f1833A234077f47880A66136a2D1e;
-    address public rewardToken;
+    address public immutable owner;
     address public manager;
+    address public rewardToken;
     address public rewardNotifier;
+
     struct CurrentWeights {
         address[] gauges;
         uint16[] weights;
     }
+
     CurrentWeights private currentWeights; // cannot publicly return struct arrays
     mapping(address => bool) public isApprovedGauge; // gauge => isApproved
     uint16 public constant MAX_GAUGE_WEIGHT = 10000;
 
     address[] public excludeAddresses; // addresses to exclude from eligibility for rewards
 
-    constructor(address _rewardToken, address _rewardNotifier) {
+    constructor(address _rewardToken, address _rewardNotifier, address _owner) {
         manager = msg.sender;
+        owner = _owner;
         rewardNotifier = _rewardNotifier;
         rewardToken = _rewardToken;
         IERC20(rewardToken).approve(DEPOSIT_ADDRESS, type(uint256).max);
@@ -41,17 +45,21 @@ contract DepositHelper {
 
 
     modifier onlyManager() {
-        require(msg.sender == manager, "!manager");
+        require(msg.sender == manager || msg.sender == owner, "!auth");
         _;
     }
-    modifier onlyRewardNotifier() {
-        require(msg.sender == rewardNotifier, "!notifier");
+    modifier onlyOwner() {
+        require(msg.sender == owner, "!owner");
         _;
     }
 
-    function notifyReward(uint256 _amount) external onlyRewardNotifier {
+    // Called by reward notifier (DepositPlatformDivider) to notify rewards and split to gauges
+    function notifyReward(uint256 _amount) external {
+        require(msg.sender == rewardNotifier, "!notifier");
         require(currentWeights.gauges.length > 0, "!weights");
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), _amount);
+
+        // split amounts according to weights
         uint256 assignedAmount = 0;
         uint256[] memory amounts = new uint256[](currentWeights.weights.length);
         for(uint256 i = 0; i < currentWeights.weights.length; i++) {
@@ -62,7 +70,7 @@ contract DepositHelper {
             amounts[i] = (_amount * currentWeights.weights[i]) / MAX_GAUGE_WEIGHT;
             assignedAmount += amounts[i];
         }
-
+        // Handle exclusions if any are set
         if(excludeAddresses.length > 0) {
             uint256 maxExclusions = Votium(DEPOSIT_ADDRESS).maxExclusions();
             address[] memory exclusions = new address[](excludeAddresses.length > maxExclusions ? maxExclusions : excludeAddresses.length);
@@ -79,7 +87,7 @@ contract DepositHelper {
             );
             return;
         }
-
+        // No exclusions
         Votium(DEPOSIT_ADDRESS).depositUnevenSplitGauges(
             rewardToken,
             Votium(DEPOSIT_ADDRESS).activeRound(),
@@ -89,6 +97,8 @@ contract DepositHelper {
             new address[](0)
         );
     }
+
+    // --- View functions ---
 
     function getCurrentWeights() external view returns (address[] memory, uint16[] memory) {
         return (currentWeights.gauges, currentWeights.weights);
@@ -103,7 +113,7 @@ contract DepositHelper {
         return 0;
     }
 
-    // Management configuration
+    // --- Manager functions ---
 
     /**
      * @notice Set the current weights to apply rewards to gauges
@@ -141,29 +151,34 @@ contract DepositHelper {
         excludeAddresses = _excludeAddresses;
     }
 
-    function setManager(address _manager) external onlyManager {
+    // --- Owner functions ---
+
+    function setManager(address _manager) external onlyOwner {
         manager = _manager;
     }
-    function setRewardToken(address _rewardToken) external onlyManager {
+    
+    function setRewardToken(address _rewardToken) external onlyOwner {
         // remove previous approval
         IERC20(rewardToken).approve(DEPOSIT_ADDRESS, 0);
         // set new token and approve
         rewardToken = _rewardToken;
         IERC20(rewardToken).approve(DEPOSIT_ADDRESS, type(uint256).max);
     }
-    function setRewardNotifier(address _rewardNotifier) external onlyManager {
+
+    function setRewardNotifier(address _rewardNotifier) external onlyOwner {
         rewardNotifier = _rewardNotifier;
     }
-    function addApprovedGauge(address _gauge) external onlyManager {
+
+    function addApprovedGauge(address _gauge) external onlyOwner {
         isApprovedGauge[_gauge] = true;
     }
-    function removeApprovedGauge(address _gauge) external onlyManager {
+
+    function removeApprovedGauge(address _gauge) external onlyOwner {
         require(currentWeightOfGauge(_gauge) == 0, "!zero");
         isApprovedGauge[_gauge] = false;
     }
 
-    // Execute function for fallback use cases
-    function execute(address to, uint256 value, bytes calldata data) external onlyManager returns (bytes memory) {
+    function execute(address to, uint256 value, bytes calldata data) external onlyOwner returns (bytes memory) {
         (bool success, bytes memory result) = to.call{value:value}(data);
         require(success, "Call failed");
         return result;
