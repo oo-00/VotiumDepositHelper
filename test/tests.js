@@ -38,6 +38,19 @@ describe("Setup", function () {
     var gauge3 = "0x8D867BEf70C6733ff25Cc0D1caa8aA6c38B24817";
     var gauge4 = "0xaF01d68714E7eA67f43f08b5947e367126B889b1";
 
+    var dead = [
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000002",
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000004",
+        "0x0000000000000000000000000000000000000005",
+        "0x0000000000000000000000000000000000000006",
+        "0x0000000000000000000000000000000000000007",
+        "0x0000000000000000000000000000000000000008",
+        "0x0000000000000000000000000000000000000009",
+        "0x0000000000000000000000000000000000000010"
+    ]
+
     before(async function () {
         ({ yb, dao, vesting, votium, DepositPlatformDivider, DepositHelperVotium, DepositHelperTwo } = await loadFixture(setUpSmartContracts));
         ybAddress = await yb.getAddress();
@@ -159,6 +172,9 @@ describe("Setup", function () {
             it("should fail if total weight is over 10000", async () => {
                 await expect(DepositPlatformDivider.setWeights([helperVotiumAddress],[10001])).to.be.revertedWith("!10000");
             });
+            it("should not allow duplicate helper provided for weights", async() => {
+                await expect(DepositPlatformDivider.setWeights([helperVotiumAddress, helperVotiumAddress],[8000, 2000])).to.be.revertedWith("!sorted");
+            });
             it("should set weights correctly (still as DAO)", async () => {
                 await DepositPlatformDivider.setWeights([helperVotiumAddress, helperTwoAddress],[8000, 2000]);
                 expect(await DepositPlatformDivider.currentWeightOfHelper(helperVotiumAddress)).to.be.equal(8000);
@@ -218,6 +234,12 @@ describe("Setup", function () {
             it("should fail if total weight is over 10000", async () => {
                 await expect(DepositHelperVotium.connect(signers.manager).setWeights([gauge1],[10001])).to.be.revertedWith("!10000");
             });
+            it("should not allow weights to have different length to gauges", async () => {
+                await expect(DepositHelperVotium.connect(signers.manager).setWeights([gauge1, gauge2],[10000])).to.be.revertedWith("!lengths");
+            });
+            it("should not allow duplicate gauge provided", async() => {
+                await expect(DepositHelperVotium.connect(signers.manager).setWeights([gauge1, gauge1],[5000, 5000])).to.be.revertedWith("!sorted");
+            })
             it("should set weights correctly (as manager)", async () => {
                 await DepositHelperVotium.connect(signers.manager).setWeights([gauge1, gauge2],[6000, 4000]);
                 expect(await DepositHelperVotium.currentWeightOfGauge(gauge1)).to.be.equal(6000);
@@ -246,8 +268,8 @@ describe("Setup", function () {
             it("should not allow public to change exclusion list", async () => {
                 await expect(DepositHelperVotium.connect(signers.minter).setExcludeAddresses([manager])).to.be.revertedWith("!auth");
             });
-            it("should now allow exclusions to be out of ascending order", async() => {
-                await expect(DepositHelperVotium.connect(signers.dao).setExcludeAddresses([tommyAddress, vestingAddress, daoAddress, votiAddress])).to.be.revertedWith("!sorted");
+            it("should now allow exclusions to have duplicate", async() => {
+                await expect(DepositHelperVotium.connect(signers.dao).setExcludeAddresses([tommyAddress, vestingAddress, daoAddress, daoAddress])).to.be.revertedWith("!sorted");
             });
             it("should allow manager or dao to change exclusion list", async () => {
                 await expect(DepositHelperVotium.connect(signers.manager).setExcludeAddresses([manager])).to.not.be.reverted;
@@ -306,7 +328,26 @@ describe("Setup", function () {
             expect(gauge1Info.excluded[0]).to.be.equal(vestingAddress);
             expect(gauge1Info.excluded[1]).to.be.equal(daoAddress);
             expect(gauge1Info.excluded[2]).to.be.equal(tommyAddress);
-
+        });
+    });
+    describe("Gas test", function() {
+        it("should add a bunch of helpers to divider", async () => {
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[0])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[1])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[2])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[3])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[4])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[5])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[6])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[7])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[8])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).addDepositHelper(dead[9])).to.not.be.reverted;
+        });
+        it("should set various weights for all helpers", async() => {
+            await expect(DepositPlatformDivider.connect(signers.dao).setWeights([dead[0], dead[1], dead[2], dead[3], dead[4], dead[5], dead[6], dead[7], dead[8], dead[9], helperVotiumAddress, helperTwoAddress],[800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 1200])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).setWeights([dead[0], dead[1], dead[2], dead[3], dead[4], dead[5], dead[6], dead[7], dead[8], dead[9], helperVotiumAddress, helperTwoAddress],[800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 1200])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).setWeights([dead[0], dead[1], dead[2], dead[3], dead[4], dead[5], dead[6], dead[7], dead[8], dead[9], helperVotiumAddress, helperTwoAddress],[800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 1200])).to.not.be.reverted;
+            await expect(DepositPlatformDivider.connect(signers.dao).setWeights([dead[0], dead[1], dead[2], dead[3], dead[4], dead[5], dead[6], dead[7], dead[8], dead[9], helperVotiumAddress, helperTwoAddress],[800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 800, 1200])).to.not.be.reverted;
         });
     });
 });
