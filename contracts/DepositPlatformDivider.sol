@@ -90,9 +90,12 @@ contract DepositPlatformDivider {
     function setWeights(address[] memory _helpers, uint16[] memory _weights) external onlyManager {
         require(_helpers.length == _weights.length, "!length");
         uint256 totalWeight = 0;
+        uint256 addressHeight;
         for(uint256 i = 0; i < _helpers.length; i++) {
             require(_weights[i] > 0, "!zero");
             require(isApprovedHelper[_helpers[i]], "!approved");
+            require(uint160(_helpers[i]) > addressHeight, "!sorted");
+            addressHeight = uint160(_helpers[i]);
             totalWeight += _weights[i];
         }
         require(totalWeight == MAX_HELPER_WEIGHT, "!10000");
