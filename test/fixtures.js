@@ -95,7 +95,7 @@ async function setUpSmartContracts() {
     var dividerAddress = await DepositPlatformDivider.getAddress();
 
     // DepositHelperVotium deployment
-    const { DepositHelperVotium } = await ignition.deploy(DepositHelperVotiumModule, {
+    var { DepositHelperVotium } = await ignition.deploy(DepositHelperVotiumModule, {
         parameters: {
             DeployDepositHelperVotium: {
                 _rewardToken: rewardTokenAddress,
@@ -106,7 +106,7 @@ async function setUpSmartContracts() {
     });
 
         // copy of DepositHelperVotium deployment
-    const { DepositHelperTwo } = await ignition.deploy(DepositHelperTwoModule, {
+    var { DepositHelperTwo } = await ignition.deploy(DepositHelperTwoModule, {
         parameters: {
             DeployDepositHelperTwo: {
                 _rewardToken: rewardTokenAddress,
@@ -115,6 +115,15 @@ async function setUpSmartContracts() {
             },
         },
     });
+
+    var presort1 = await DepositHelperVotium.getAddress();
+    var presort2 = await DepositHelperTwo.getAddress();
+
+    if(presort1.toLowerCase() > presort2.toLowerCase()){
+        var tempDHV = DepositHelperVotium;
+        DepositHelperVotium = DepositHelperTwo;
+        DepositHelperTwo = tempDHV;
+    }
 
     return { yb, dao, vesting, votium, DepositPlatformDivider, DepositHelperVotium, DepositHelperTwo };
 }
