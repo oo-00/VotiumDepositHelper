@@ -62,7 +62,7 @@ contract DepositPlatformDivider {
     
     // Claim from vest, split, and notify each helper
     function claim() external {
-        uint256 currentEpoch = (block.timestamp / 1209600) * 1209600;
+        uint256 currentEpoch = (block.timestamp / 604800) * 604800;
         require(currentEpoch > lastClaimed, "!wait");
         require(currentWeights.helpers.length > 0, "!weights");
         lastClaimed = currentEpoch;
