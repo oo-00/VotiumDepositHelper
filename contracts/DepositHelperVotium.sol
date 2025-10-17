@@ -84,6 +84,14 @@ contract DepositHelperVotium {
         }
     }
 
+    function getRewardByIndex(uint256 _index) external view returns (address[] memory gauges, uint256[] memory amounts, uint256 epoch) {
+        return (lastReward[_index].gauges, lastReward[_index].amounts, lastReward[_index].epoch);
+    }
+
+    function rewardHistoryLength() external view returns (uint256) {
+        return lastReward.length;
+    }
+
     // --- Main function ---
 
     // Called by reward notifier (DepositPlatformDivider) to notify rewards and split to gauges

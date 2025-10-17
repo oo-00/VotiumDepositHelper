@@ -17,6 +17,8 @@ interface IDepositHelper {
     function currentWeightOfGauge(address _gauge) external view returns (uint16);
     
     function getLastReward() external view returns (address[] memory gauges, uint256[] memory amounts, uint256 epoch);
+    function rewardHistoryLength() external view returns (uint256);
+    function getRewardByIndex(uint256 _index) external view returns (address[] memory gauges, uint256[] memory amounts, uint256 epoch);
 
     // --- External functions ---
     function notifyReward(uint256 _amount) external;
