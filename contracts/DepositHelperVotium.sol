@@ -29,7 +29,15 @@ contract DepositHelperVotium {
         uint16[] weights;
     }
 
+    struct LastReward {
+        address[] gauges;
+        uint256[] amounts;
+        uint256 epoch;
+    }
+
     CurrentWeights private currentWeights; // cannot publicly return struct arrays
+    LastReward[] private lastReward;
+
     mapping(address => bool) public isApprovedGauge; // gauge => isApproved
     uint16 public constant MAX_GAUGE_WEIGHT = 10000;
 
@@ -68,6 +76,14 @@ contract DepositHelperVotium {
         return 0;
     }
 
+    function getLastReward() external view returns (address[] memory gauges, uint256[] memory amounts, uint256 epoch) {
+        if(lastReward[lastReward.length - 1].epoch < (block.timestamp / 604800) * 604800) {
+            return (lastReward[lastReward.length - 1].gauges, lastReward[lastReward.length - 1].amounts, lastReward[lastReward.length - 1].epoch);
+        } else {
+            return (lastReward[lastReward.length - 2].gauges, lastReward[lastReward.length - 2].amounts, lastReward[lastReward.length - 2].epoch);
+        }
+    }
+
     // --- Main function ---
 
     // Called by reward notifier (DepositPlatformDivider) to notify rewards and split to gauges
@@ -91,6 +107,14 @@ contract DepositHelperVotium {
             emit DepositForGauge(currentWeights.gauges[i], amounts[i], votiumRound);
             assignedAmount += amounts[i];
         }
+
+        // Record last reward for efficiency calculations
+        lastReward.push(LastReward({
+            gauges: currentWeights.gauges,
+            amounts: amounts,
+            epoch: (block.timestamp / 604800) * 604800
+        }));
+
         // Handle exclusions if any are set
         if(excludeAddresses.length > 0) {
             uint256 maxExclusions = Votium(DEPOSIT_ADDRESS).maxExclusions();
