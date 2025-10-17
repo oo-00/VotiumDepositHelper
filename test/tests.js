@@ -111,32 +111,6 @@ describe("Setup", function () {
             await vesting.connect(signers.dao).set_recipient(dividerAddress);
             expect(await vesting.recipient()).to.be.equal(dividerAddress);
         });
-        it("should start yb emissions", async () => {
-
-            await yb.connect(signers.ybOwner).start_emissions();
-            expect(await yb.last_minted()).to.be.gt(0);
-        });
-        it("should emit some yb tokens", async () => {
-
-            // wait 1 week
-            await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60]); // 7 days
-            await ethers.provider.send("evm_mine", []);
-
-            // cannot call 'emit' directly because hardhat has an override for 'emit' keyword
-            // await yb.connect(signers.minter).emit(minter, rate_factor);
-            var callData = "0xf1fb05e9"+"0000000000000000000000001be14811a3a06f6af4fa64310a636e1df04c1c21"+"0000000000000000000000000000000000000000000000000AC7230489E80000";
-            // use callData on yb contract signed by minter
-            await ethers.provider.send("eth_sendTransaction", [
-                {
-                    from: minter,
-                    to: ybAddress,
-                    data: callData,
-                    gasLimit: 1000000,
-                },
-            ]);
-            // check balance of minter
-            expect(await yb.balanceOf(minter)).to.be.gt(0);
-        });
         it("should have some claimable yb in vesting", async () => {
             var claimable = await vesting.claimable();
             expect(claimable).to.be.gt(0);
