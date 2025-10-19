@@ -12,7 +12,7 @@ contract DepositPlatformDivider {
     using SafeERC20 for IERC20;
 
     VestingContract public immutable VESTING;
-    address public immutable owner;
+    address public owner;
 
     uint16 public constant MAX_HELPER_WEIGHT = 10000;
 
@@ -110,6 +110,10 @@ contract DepositPlatformDivider {
     function setManager(address _manager) external onlyOwner {
         manager = _manager;
         emit NewManager(_manager);
+    }
+
+    function setOwner(address _owner) external onlyOwner {
+        owner = _owner;
     }
 
     function setRewardToken(address _rewardToken) external onlyOwner {
