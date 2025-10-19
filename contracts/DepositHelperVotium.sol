@@ -19,7 +19,7 @@ interface Votium {
 contract DepositHelperVotium {
     using SafeERC20 for IERC20;
     address public constant DEPOSIT_ADDRESS = 0x63942E31E98f1833A234077f47880A66136a2D1e;
-    address public immutable owner;
+    address public owner;
     address public manager;
     address public rewardToken;
     address public rewardNotifier;
@@ -199,6 +199,10 @@ contract DepositHelperVotium {
     function setManager(address _manager) external onlyOwner {
         manager = _manager;
         emit NewManager(_manager);
+    }
+
+    function setOwner(address _owner) external onlyOwner {
+        owner = _owner;
     }
     
     function setRewardToken(address _rewardToken) external onlyOwner {
