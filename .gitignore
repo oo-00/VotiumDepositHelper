@@ -15,3 +15,8 @@ node_modules
 
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
+contracts/ERC165.sol
+contracts/IERC20.sol
+contracts/IERC165.sol
+contracts/IERC1363.sol
+contracts/SafeERC20.sol
