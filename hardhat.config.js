@@ -16,7 +16,8 @@ module.exports = {
       forking: {
         // Use an RPC URL from a provider like Alchemy, Infura, etc.
         url: `http://localhost:8545`, // Replace with your own RPC URL
-      }
+      },
+      chainId: 1,
     }
   }
 };
