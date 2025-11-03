@@ -96,6 +96,7 @@ contract EfficiencyManager {
     function updateWeights() external {
         uint256 currentEpoch = (block.timestamp / 2 weeks) * 2 weeks - 1 weeks;
         require(currentEpoch > lastTimeSet, "!wait");
+        lastTimeSet = currentEpoch;
         Weights memory av;
         if(averagingLength > 0) {
             av = calcAveraged();
