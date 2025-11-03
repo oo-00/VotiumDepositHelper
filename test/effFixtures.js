@@ -4,10 +4,8 @@ const {
   setBalance,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
-var DepositPlatformDividerModule = require("../ignition/modules/DepositPlatformDividerDeployment");
-var DepositHelperVotiumModule = require("../ignition/modules/DepositHelperVotiumDeployment");
-var DepositHelperTwoModule = require("../ignition/modules/DepositHelperTwoDeployment");
- 
+var EfficiencyManagerModule = require("../ignition/modules/EfficiencyManagerDeployment");
+
 async function ybSetUp() {
     var yb;
     var ybAddress = "0x01791F726B4103694969820be083196cC7c045fF";
@@ -67,12 +65,15 @@ async function votiumSetUp() {
 
 async function depositDividerSetUp() {
     var divider;
-    var dividerAddress = "0x1DbA3180458f8791c077102375Ad2623756943e8";
+    var dividerAddress = "0x0997f89c451124EadF00f87DE77924D77A38419a";
     var dividerAbi = [
         "function getRewardToken() external view returns (address)",
         "function getVesting() external view returns (address)",
         "function getOwner() external view returns (address)",
         "function claim() external",
+        "function getCurrentWeights() external view returns(address[] memory, uint16[] memory)",
+        "function setManager(address) external",
+        "function manager() external view returns (address)"
     ];
     divider = new ethers.Contract(dividerAddress, dividerAbi, ethers.provider);
     return divider;
@@ -80,7 +81,7 @@ async function depositDividerSetUp() {
 
 async function depositHelperVotiumSetUp() {
     var helperVotium;
-    var helperVotiumAddress = "0x0E190deC1D74005b5a135B26D04E283751A62f8D";
+    var helperVotiumAddress = "0x5005DE019301aB6b744B6EFbB942E9A8999EEeC7";
     var helperVotiumAbi = [
     {
       "inputs": [
@@ -1198,16 +1199,8 @@ async function setUpSmartContracts() {
 
     var votium = await votiumSetUp();
 
-    /*/ DepositPlatformDivider deployment
-    const { DepositPlatformDivider } = await ignition.deploy(DepositPlatformDividerModule, {
-    parameters: {
-        DeployDepositPlatformDivider: {
-        _rewardToken: rewardTokenAddress,
-        _vesting: vestingAddress,
-        _owner: daoAddress,
-        },
-    },
-    });*/
+    const { EfficiencyManager } = await ignition.deploy(EfficiencyManagerModule);
+
 
     var DepositPlatformDivider = await depositDividerSetUp();
 
@@ -1248,6 +1241,6 @@ async function setUpSmartContracts() {
         DepositHelperTwo = tempDHV;
     }
     /*/
-    return { yb, dao, vesting, votium, DepositPlatformDivider, DepositHelperVotium, DepositHelperVoteMarket};
+    return { yb, dao, vesting, votium, DepositPlatformDivider, DepositHelperVotium, DepositHelperVoteMarket, EfficiencyManager};
 }
 module.exports = { setUpSmartContracts };
